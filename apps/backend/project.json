@@ -1,0 +1,17 @@
+{
+  "name": "backend",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python apps/backend/main.py"
+      }
+    },
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pip install -r apps/backend/requirements.txt"
+      }
+    }
+  }
+}
