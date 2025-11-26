@@ -18,7 +18,7 @@ Before running commands, ensure you have the appropriate environment files:
 
 ### Full Stack Development
 ```bash
-# Start both frontend and backend in development mode
+# Start both frontend and backend in development mode (parallel)
 npm run dev
 
 # Frontend only (port 3000, development mode)
@@ -34,7 +34,7 @@ nx serve:dev backend
 # Default NX commands (same as above)
 nx serve AgriVote          # Frontend (port 3000)
 nx serve:dev AgriVote      # Frontend (port 3000, explicit dev)
-nx serve:dev backend       # Backend (ENV=development)
+nx serve:dev backend       # Backend with venv (ENV=development)
 ```
 
 ## Production Commands
@@ -152,6 +152,14 @@ npm install && npm run install:backend
 
 ## Deployment Notes
 
+### Initial Backend Setup (Required First)
+```bash
+# Install Python dependencies in venv (run once)
+npm run install:backend
+# or
+nx install backend
+```
+
 ### Production Deployment
 1. Copy `.env.production.example` to `.env.production` and configure
 2. Set environment variable `ENV=production`
@@ -159,6 +167,7 @@ npm install && npm run install:backend
 4. Run `npm run prod:backend:only` for backend
 
 ### Development Deployment
-1. Ensure `.env` and `.env.development.local` exist
-2. Run `npm run dev` for full-stack development
-3. Access at http://localhost:3000 (frontend) and http://localhost:8000 (backend)
+1. **Install backend dependencies**: `npm run install:backend`
+2. Ensure `.env` and `.env.development.local` exist
+3. Run `npm run dev` for full-stack development
+4. Access at http://localhost:3000 (frontend) and http://localhost:8000 (backend)
