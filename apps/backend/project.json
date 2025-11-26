@@ -4,7 +4,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python apps/backend/main.py"
+        "command": "py apps/backend/main.py"
       }
     },
     "install": {
