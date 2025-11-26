@@ -1,8 +1,10 @@
-flask
-flask-cors
-flask_sqlalchemy
-flask-bcrypt
-pyjwt
+fastapi==0.111.1
+uvicorn==0.24.0
+pydantic==2.6.2
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+motor
 python-dotenv
-pymongo
-dnspython
+bson
+python-multipart
+email-validator==2.2.0

@@ -1,46 +1,101 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# -------------------------------------------
+# Nx / General Repo
+# -------------------------------------------
+node_modules/
+tmp/
+dist/
+build/
+.cache/
+.nx/cache/
+.nx/workspace-data/
 
-# compiled output
-dist
-tmp
-out-tsc
+# Env files
+*.env
+*.env.* 
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# dependencies
-node_modules
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-
-# System Files
+# OS
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
+# -------------------------------------------
+# React / Next.js / Vite / CRA
+# -------------------------------------------
+# Next.js
+.next/
+out/
 
-vite.config.*.timestamp*
+# Vite / CRA
+vite.config.ts.timestamp*
+*.tsbuildinfo
+coverage/
+*.map
+
+# React build artefacts
+*.cache/
+*.parcel-cache/
+.eslintcache
+
+# -------------------------------------------
+# Python Backend
+# -------------------------------------------
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Python tools
+.mypy_cache/
+.pytest_cache/
+.cache/
+coverage.xml
+htmlcov/
+
+# FastAPI / Flask specific
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# -------------------------------------------
+# Docker
+# -------------------------------------------
+docker-data/
+docker-volumes/
+*.pid
+
+# -------------------------------------------
+# Misc
+*.bak
+*.tmp
