@@ -4,13 +4,31 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python apps/backend/main.py"
+        "command": "apps/backend/venv/Scripts/python.exe apps/backend/main.py"
+      }
+    },
+    "serve:dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "apps/backend/venv/Scripts/python.exe apps/backend/main.py",
+        "env": {
+          "ENV": "development"
+        }
+      }
+    },
+    "serve:prod": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "apps/backend/venv/Scripts/python.exe apps/backend/main.py",
+        "env": {
+          "ENV": "production"
+        }
       }
     },
     "install": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pip install -r apps/backend/requirements.txt"
+        "command": "apps/backend/venv/Scripts/pip.exe install -r apps/backend/requirements.txt"
       }
     }
   }
