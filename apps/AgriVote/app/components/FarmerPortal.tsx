@@ -3,6 +3,7 @@ import { ArrowLeft, Send, AlertTriangle, CheckCircle, Sparkles } from 'lucide-re
 import { classifyDomain, cleanupQuestion, detectDuplicates } from '../lib/ai-services';
 import { DuplicateMatch, Domain } from '../types';
 import { domainColors } from '../lib/data';
+import { API_ENDPOINTS } from '../lib/config';
 import { AppNav } from '../layouts/app-nav';
 
 interface FarmerPortalProps {
@@ -18,6 +19,8 @@ export function FarmerPortal({ onBack }: FarmerPortalProps) {
   const [domain, setDomain] = useState<Domain | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleAnalyze = () => {
     if (!originalQuestion.trim() || !farmerName.trim()) return;
@@ -44,12 +47,44 @@ export function FarmerPortal({ onBack }: FarmerPortalProps) {
     setStep('duplicate-check');
   };
 
-  const handleSubmit = () => {
-    // In a real app, this would submit to backend
-    setSubmitted(true);
-    setTimeout(() => {
-      setStep('submit');
-    }, 1000);
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const response = await fetch(API_ENDPOINTS.SUBMIT_QUESTION, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: cleanedQuestion,
+          metadata: {
+            farmerName,
+            domain,
+            duplicatesFound: duplicates.length,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Question submitted successfully:', data);
+
+      setSubmitted(true);
+      setTimeout(() => {
+        setStep('submit');
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to submit question:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Unknown error occurred');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (step === 'submit' || submitted) {
@@ -189,13 +224,33 @@ export function FarmerPortal({ onBack }: FarmerPortalProps) {
               </div>
             )}
 
+            {submitError && (
+              <div className="bg-red-50 rounded-lg p-4 mb-4 flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+                <div>
+                  <p className="text-red-900 mb-1">Submission Failed</p>
+                  <p className="text-red-700 text-sm">{submitError}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4">
               <button
                 onClick={handleSubmit}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                disabled={submitting}
+                className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <Send className="w-5 h-5" />
-                Submit My Question Anyway
+                {submitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    Submit My Question Anyway
+                  </>
+                )}
               </button>
               {duplicates.length > 0 && (
                 <button

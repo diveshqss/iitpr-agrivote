@@ -7,6 +7,24 @@
         "command": "py apps/backend/main.py"
       }
     },
+    "serve:dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python apps/backend/main.py",
+        "env": {
+          "ENV": "development"
+        }
+      }
+    },
+    "serve:prod": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python apps/backend/main.py",
+        "env": {
+          "ENV": "production"
+        }
+      }
+    },
     "install": {
       "executor": "nx:run-commands",
       "options": {

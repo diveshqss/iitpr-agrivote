@@ -1,0 +1,72 @@
+{
+  "name": "AgriVote",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/AgriVote",
+  "projectType": "application",
+  "tags": ["scope:frontend", "type:app"],
+  "targets": {
+    "serve": {
+      "executor": "@react-router/dev:serve",
+      "options": {
+        "port": 3000
+      },
+      "configurations": {
+        "development": {
+          "port": 3000
+        },
+        "production": {
+          "port": 3001
+        }
+      }
+    },
+    "serve:dev": {
+      "executor": "@react-router/dev:serve",
+      "options": {
+        "port": 3000,
+        "mode": "development"
+      }
+    },
+    "serve:prod": {
+      "executor": "@react-router/dev:serve",
+      "options": {
+        "port": 3001,
+        "mode": "production"
+      }
+    },
+    "build": {
+      "executor": "@react-router/dev:build",
+      "outputs": ["{projectRoot}/build"],
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    },
+    "build:dev": {
+      "executor": "@react-router/dev:build",
+      "outputs": ["{projectRoot}/build"],
+      "options": {
+        "mode": "development"
+      }
+    },
+    "build:prod": {
+      "executor": "@react-router/dev:build",
+      "outputs": ["{projectRoot}/build-prod"],
+      "options": {
+        "mode": "production"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "type-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit"
+      }
+    }
+  }
+}
