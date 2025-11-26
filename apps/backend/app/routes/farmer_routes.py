@@ -22,18 +22,42 @@ async def get_optional_user(authorization: Optional[str] = Header(None)):
             return payload.get("user_id")
     return None
 
+# @router.post("/questions", response_model=dict)
+# async def submit_question(q: QuestionCreate, background_tasks: BackgroundTasks, user_id: Optional[str] = Depends(get_optional_user)):
+#     """
+#     Accept a question (authenticated user_id optional).
+#     Stores raw question and triggers background AI pipeline.
+#     """
+#     try:
+#         created_id = await create_question(user_id, q.text, q.metadata)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"DB insert error: {e}")
+#     # trigger background pipeline
+#     background_tasks.add_task(process_question_pipeline, created_id)
+#     return success({"question_id": created_id}, message="Question submitted and processing started")
 @router.post("/questions", response_model=dict)
-async def submit_question(q: QuestionCreate, background_tasks: BackgroundTasks, user_id: Optional[str] = Depends(get_optional_user)):
+async def submit_question(
+    q: QuestionCreate,
+    background_tasks: BackgroundTasks,
+    user_id: Optional[str] = Depends(get_optional_user)
+):
     """
-    Accept a question (authenticated user_id optional).
+    Accept a question.
     Stores raw question and triggers background AI pipeline.
     """
+
     try:
-        created_id = await create_question(user_id, q.text, q.metadata)
+        # IMPORTANT → make sure q.text exists in QuestionCreate
+        created_id = await create_question(
+            user_id=user_id,
+            original_text=q.text,       # CHANGE THIS NAME IF YOUR SERVICE USES A DIFFERENT KEY
+            metadata=q.metadata
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB insert error: {e}")
-    # trigger background pipeline
+
     background_tasks.add_task(process_question_pipeline, created_id)
+
     return success({"question_id": created_id}, message="Question submitted and processing started")
 
 @router.get("/questions/{question_id}", response_model=dict)

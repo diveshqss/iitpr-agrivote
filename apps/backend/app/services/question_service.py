@@ -4,6 +4,8 @@ from bson import ObjectId
 from datetime import datetime
 from app.ai import classifier, duplicate_detector, cleanup
 import asyncio
+from app.ai.classifier import classify_question_domain
+
 
 async def create_question(user_id: str | None, original_text: str, metadata: dict | None = None):
     doc = {
@@ -37,7 +39,7 @@ async def process_question_pipeline(question_id: str):
     text = qobj.get("original_text", "")
 
     # 1) classification
-    domain = await classifier.classify_text(text)
+    domain = await classifier.classify_question_domain(text)
     await questions_collection.update_one({"_id": ObjectId(question_id)}, {"$set": {"domain": domain}})
 
     # 2) duplicate detection
@@ -61,3 +63,15 @@ async def process_question_pipeline(question_id: str):
         await questions_collection.update_one({"_id": ObjectId(question_id)}, {"$set": {"status": "assigned"}})
 
     await questions_collection.update_one({"_id": ObjectId(question_id)}, {"$set": {"ai_pipeline.status": "done"}})
+
+async def process_domain_classification(question_id: str, question_text: str):
+    from app.utils.db import db
+    
+    domain = await classify_question_domain(question_text)
+
+    await db.questions.update_one(
+        {"_id": question_id},
+        {"$set": {"domain": domain}}
+    )
+
+    return domain
