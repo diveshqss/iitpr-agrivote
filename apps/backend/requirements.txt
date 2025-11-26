@@ -8,3 +8,4 @@ python-dotenv
 bson
 python-multipart
 email-validator==2.2.0
+google-generativeai
