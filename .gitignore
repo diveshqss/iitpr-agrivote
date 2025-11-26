@@ -43,6 +43,4 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Next.js
-.next
-out
+vite.config.*.timestamp*
