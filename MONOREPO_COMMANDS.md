@@ -79,7 +79,7 @@ nx build:prod AgriVote
 
 ### Backend Dependencies
 ```bash
-# Install Python dependencies
+# Install Python dependencies (uses venv pip)
 npm run install:backend
 # or
 nx install backend
