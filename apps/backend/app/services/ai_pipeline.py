@@ -141,8 +141,7 @@ async def process_question_pipeline(question_id: str):
     # 3) Duplicate detection (now uses vector search if embedding available)
     try:
         # Pass both text and embedding to duplicate detector
-        embedding_data = qobj.get("embedding") if "embedding" in qobj and qobj["embedding"] else None
-        dup = await duplicate_detector.find_semantic_duplicate(question_id, text, embedding_data)
+        dup = await duplicate_detector.find_semantic_duplicate(question_id, text, embedding)
 
         if dup:
             await questions_collection.update_one(

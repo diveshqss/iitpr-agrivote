@@ -33,19 +33,24 @@ async def get_question_by_id(question_id: str) -> Optional[QuestionOut]:
     """
     Fetch question by ID and return as QuestionOut.
     """
+    from app.models.question import AIMetadata, AIPipelineStatus, QuestionStatus
+
     doc = await questions_collection.find_one({"_id": ObjectId(question_id)})
     if not doc:
         return None
 
     return QuestionOut(
         id=str(doc["_id"]),
-        original_text=doc.get("original_text"),
+        raw_text=doc.get("original_text") or doc.get("raw_text", ""),
         cleaned_text=doc.get("cleaned_text"),
         domain=doc.get("domain"),
-        status=doc.get("status"),
+        status=doc.get("status", QuestionStatus.NEW),
         assigned_experts=doc.get("assigned_experts") or [],
-        duplicate_of=doc.get("duplicate_of"),
-        created_at=str(doc.get("created_at"))
+        is_duplicate_of=doc.get("duplicate_of"),
+        created_by=doc.get("user_id") or doc.get("created_by", ""),
+        created_at=doc.get("created_at"),
+        ai_metadata=doc.get("ai_metadata", AIMetadata()),
+        ai_pipeline=doc.get("ai_pipeline", AIPipelineStatus())
     )
 
 
@@ -218,7 +223,7 @@ async def update_question(question_id: str, updates: Dict) -> bool:
 
 # async def process_domain_classification(question_id: str, question_text: str):
 #     from app.utils.db import db
-    
+
 #     domain = await classify_question_domain(question_text)
 
 #     await db.questions.update_one(

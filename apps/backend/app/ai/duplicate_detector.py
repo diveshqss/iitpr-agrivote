@@ -32,7 +32,7 @@ async def find_semantic_duplicate(question_id: str, text: str, embedding: Option
             pipeline = [
                 {
                     "$vectorSearch": {
-                        "index": "vector_index",
+                        "index": "default",
                         "path": "embedding",
                         "queryVector": embedding,
                         "numCandidates": 100,
@@ -49,7 +49,7 @@ async def find_semantic_duplicate(question_id: str, text: str, embedding: Option
                 {
                     "$project": {
                         "_id": 1,
-                        "raw_text": 1,
+                        "cleaned_text": 1,
                         "score": {"$meta": "vectorSearchScore"}
                     }
                 },
