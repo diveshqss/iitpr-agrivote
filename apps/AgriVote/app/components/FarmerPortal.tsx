@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ArrowLeft, Send, AlertTriangle, CheckCircle, Sparkles } from 'lucide-react';
+import { useAuth } from '../lib/auth-context';
 import { classifyDomain, cleanupQuestion, detectDuplicates } from '../lib/ai-services';
 import { DuplicateMatch, Domain } from '../types';
 import { domainColors } from '../lib/data';
-import { API_ENDPOINTS } from '../lib/config';
+import { farmerAPI } from '../lib/api';
 import { AppNav } from '../layouts/app-nav';
 
 interface FarmerPortalProps {
@@ -11,6 +12,7 @@ interface FarmerPortalProps {
 }
 
 export function FarmerPortal({ onBack }: FarmerPortalProps) {
+  const { token } = useAuth();
   const [step, setStep] = useState<'input' | 'cleanup' | 'duplicate-check' | 'submit'>('input');
   const [farmerName, setFarmerName] = useState('');
   const [originalQuestion, setOriginalQuestion] = useState('');
@@ -48,32 +50,19 @@ export function FarmerPortal({ onBack }: FarmerPortalProps) {
   };
 
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (submitting || !token) return;
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      const response = await fetch(API_ENDPOINTS.SUBMIT_QUESTION, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await farmerAPI.submitQuestion({
+        text: cleanedQuestion,
+        metadata: {
+          farmerName,
+          domain,
+          duplicatesFound: duplicates.length,
         },
-        body: JSON.stringify({
-          text: cleanedQuestion,
-          metadata: {
-            farmerName,
-            domain,
-            duplicatesFound: duplicates.length,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('Question submitted successfully:', data);
+      }, token);
 
       setSubmitted(true);
       setTimeout(() => {

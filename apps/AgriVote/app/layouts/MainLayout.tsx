@@ -1,13 +1,44 @@
 import { useState } from 'react';
+import { useAuth } from '../lib/auth-context';
+import Login from '../components/Login';
 import { FarmerPortal } from '../components/FarmerPortal';
 import { ExpertDashboard } from '../components/ExpertDashboard';
 import { ModeratorDashboard } from '../components/ModeratorDashboard';
 import { AdminDashboard } from '../components/AdminDashboard';
-import { Sprout, Users, Shield, Settings } from 'lucide-react';
+import { Sprout, Users, Shield, Settings, LogOut } from 'lucide-react';
 
 type UserRole = 'farmer' | 'expert' | 'moderator' | 'admin' | null;
 
-export default function App() {
+export default function MainLayout() {
+  const { user, logout } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
+
+  // If not authenticated, show login
+  if (!user) {
+    return <Login onLoginSuccess={() => setShowLogin(false)} />;
+  }
+
+  // Map user role to role-based components
+  const handleRoleAccess = () => {
+    switch (user.role) {
+      case 'farmer':
+        return <FarmerPortal onBack={logout} />;
+      case 'expert':
+        // For expert, we need expert ID, for now use a default or let user select
+        return <ExpertDashboard expertId={user.id} onBack={logout} />;
+      case 'moderator':
+        return <ModeratorDashboard onBack={logout} />;
+      default:
+        // For admin or unknown roles, show role selection
+        return <RoleSelection onLogout={logout} />;
+    }
+  };
+
+  return handleRoleAccess();
+}
+
+// Role selection for admin or unknown roles
+function RoleSelection({ onLogout }: { onLogout: () => void }) {
   const [currentRole, setCurrentRole] = useState<UserRole>(null);
   const [expertId, setExpertId] = useState<string>('');
 
@@ -31,6 +62,16 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       <div className="container mx-auto px-4 py-12">
         <div className="text-center mb-12">
+          <div className="flex justify-between mb-4">
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+            <div />
+          </div>
           <div className="flex items-center justify-center gap-3 mb-4">
             <Sprout className="w-12 h-12 text-green-600" />
             <h1 className="text-green-800">AgriVote Nexus</h1>

@@ -7,6 +7,7 @@ import {
   type MetaFunction,
   type LinksFunction,
 } from 'react-router';
+import { AuthProvider } from './lib/auth-context';
 
 export const meta: MetaFunction = () => [
   {
@@ -46,5 +47,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  );
 }

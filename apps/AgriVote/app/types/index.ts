@@ -1,5 +1,31 @@
 export type Domain = 'crop' | 'soil' | 'irrigation' | 'pest' | 'disease' | 'fertilizer' | 'machinery' | 'subsidy';
 
+export type UserRole = 'farmer' | 'expert' | 'moderator' | 'admin';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface UserCreate {
+  name: string;
+  email: string;
+  role: UserRole;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token?: string;
+  token_type?: string;
+}
+
+export interface QuestionCreate {
+  text: string;
+  metadata?: object;
+}
+
 export type QuestionStatus = 'pending_allocation' | 'allocated' | 'in_review' | 'ready_for_moderator' | 'approved' | 'rejected' | 'reallocated';
 
 export interface Question {
