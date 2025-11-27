@@ -26,6 +26,11 @@ export interface QuestionCreate {
   metadata?: object;
 }
 
+export interface AnswerCreate {
+  answer_text: string;
+  images?: string[];
+}
+
 export type QuestionStatus = 'pending_allocation' | 'allocated' | 'in_review' | 'ready_for_moderator' | 'approved' | 'rejected' | 'reallocated';
 
 export interface Question {

@@ -65,23 +65,22 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
         if (password !== confirmPassword) {
           throw new Error('Passwords do not match');
         }
-        const signupData: any = {
-          name,
-          email,
+        if (!name.trim()) {
+          throw new Error('Name is required');
+        }
+        const signupData = {
+          name: name.trim(),
+          email: email.trim(),
           role,
           password,
         };
-
-        if (role === 'expert') {
-          signupData.expertId = expertId || undefined;
-          signupData.specialization = specialization;
-        }
 
         await signup(signupData);
       }
       onLoginSuccess?.();
     } catch (err) {
       // Error is handled by the auth context
+      console.error('Auth error:', err);
     }
   };
 

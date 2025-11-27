@@ -41,33 +41,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // Helper function to decode JWT (simple base64 decode for demo)
+  const decodeToken = (token: string) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload;
+    } catch {
+      return null;
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
     try {
-      // Mock demo credentials
-      const demoUsers = [
-        { email: 'farmer@demo.com', password: 'password', role: 'farmer' as UserRole, name: 'Demo Farmer' },
-        { email: 'expert-1@demo.com', password: 'password', role: 'expert' as UserRole, name: 'Demo Expert 1' },
-        { email: 'moderator@demo.com', password: 'password', role: 'moderator' as UserRole, name: 'Demo Moderator' },
-        { email: 'admin@demo.com', password: 'password', role: 'admin' as UserRole, name: 'Demo Admin' },
-      ];
+      const tokenResponse = await authAPI.login(email, password);
+      const accessToken = tokenResponse.access_token;
 
-      const user = demoUsers.find(u => u.email === email && u.password === password);
-      if (user) {
-        // Mock token
-        const mockToken = 'mock-token-' + user.role;
-        tokenUtils.setToken(mockToken);
-        setToken(mockToken);
-        const mockUser: User = {
-          id: 'demo-' + user.role,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        };
-        setUser(mockUser);
+      if (accessToken) {
+        tokenUtils.setToken(accessToken);
+        setToken(accessToken);
+
+        // Decode JWT to get user info
+        const decoded = decodeToken(accessToken);
+        if (decoded && decoded.user_id && decoded.role) {
+          const userObj: User = {
+            id: decoded.user_id,
+            name: email.split('@')[0], // We'll get name from backend later if needed
+            email: email,
+            role: decoded.role,
+          };
+          setUser(userObj);
+        } else {
+          throw new Error('Invalid token payload');
+        }
       } else {
-        throw new Error('Invalid email or password');
+        throw new Error('Login failed - no access token received');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');

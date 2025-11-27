@@ -1,28 +1,105 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, MessageSquare, TrendingUp } from 'lucide-react';
-import { questions as questionsData, getExpertById } from '../lib/data';
-import { Question } from '../types';
+import { ArrowLeft, FileText, MessageSquare, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
+import { Question, Expert } from '../types';
 import { QuestionCard } from './QuestionCard';
 import { AnswerSubmission } from './AnswerSubmission';
 import { ReviewAnswers } from './ReviewAnswers';
+import { expertAPI } from '../lib/api';
+import { useAuth } from '../lib/auth-context';
 
 interface ExpertDashboardProps {
-  expertId: string;
   onBack: () => void;
 }
 
-export function ExpertDashboard({ expertId, onBack }: ExpertDashboardProps) {
+export function ExpertDashboard({ onBack }: ExpertDashboardProps) {
+  const { user, token } = useAuth();
   const [activeTab, setActiveTab] = useState<'assigned' | 'review'>('assigned');
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-  const [questions, setQuestions] = useState<Question[]>(questionsData);
-  
-  const expert = getExpertById(expertId);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [expert, setExpert] = useState<Expert | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setQuestions([...questionsData]);
-  }, []);
+    const fetchExpertData = async () => {
+      if (!user || user.role !== 'expert') {
+        setError('Please log in as an expert to access this dashboard');
+        setIsLoading(false);
+        return;
+      }
 
-  if (!expert) {
+      try {
+        // Fetch expert data from backend using the logged-in user's email
+        const response = await expertAPI.getExpertByEmail(user.email);
+        const expertData = response.data.expert;
+
+        // Transform to match our Expert interface
+        const transformedExpert: Expert = {
+          id: expertData._id || expertData.id,
+          name: expertData.name,
+          specialization: [expertData.domain], // Convert single domain to array
+          accuracyScore: expertData.accuracy || 85,
+          moderatorAcceptanceRate: expertData.score || 4.5,
+          peerVotesReceived: expertData.peerVotesReceived || 156,
+          consistencyScore: expertData.consistencyScore || 88,
+          averageResponseTime: expertData.averageResponseTime || 3.2,
+          totalAnswers: expertData.totalAnswers || 42,
+          totalApprovals: expertData.totalApprovals || 39
+        };
+
+        setExpert(transformedExpert);
+
+        // Fetch questions using the expert's ID
+        await fetchAssignedQuestions(transformedExpert.id);
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load expert data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const fetchAssignedQuestions = async (expertId: string) => {
+      try {
+        // Update expert ID in all API calls
+        const response = await expertAPI.getAssignedQuestions();
+        const apiQuestions: Question[] = (response.data?.questions || []).map((q: any) => ({
+          id: q._id,
+          farmerId: q.user_id || 'unknown',
+          farmerName: 'Farmer',
+          originalQuestion: q.original_text,
+          cleanedQuestion: q.cleaned_text,
+          aiSuggestions: [],
+          domain: q.domain,
+          status: q.status === 'assigned' ? 'allocated' : q.status === 'answered' ? 'in_review' : 'allocated',
+          submittedAt: typeof q.created_at === 'object' && q.created_at.$date ? q.created_at.$date : q.created_at,
+          allocatedExperts: q.assigned_experts || [],
+          answers: [],
+          isDuplicate: q.duplicate_of !== null,
+          duplicateOf: q.duplicate_of
+        }));
+        setQuestions(apiQuestions);
+      } catch (err) {
+        console.error('Failed to fetch questions:', err);
+        setError('Failed to load questions');
+      }
+    };
+
+    fetchExpertData();
+  }, [user, token]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-blue-700">Loading expert dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
         <div className="max-w-2xl mx-auto">
@@ -31,32 +108,45 @@ export function ExpertDashboard({ expertId, onBack }: ExpertDashboardProps) {
             Back to Home
           </button>
           <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <p className="text-red-600">Expert not found. Please check your Expert ID.</p>
+            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <p className="text-red-600">{error}</p>
           </div>
         </div>
       </div>
     );
   }
 
-  const assignedQuestions = questions.filter(q => 
-    q.allocatedExperts.includes(expertId) && 
+  // Expert should not be null after successful loading
+  if (!expert) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <p className="text-red-600">Failed to load expert profile</p>
+        </div>
+      </div>
+    );
+  }
+
+  const assignedQuestions = questions.filter(q =>
+    q.allocatedExperts.includes(expert.id) &&
     ['allocated', 'in_review'].includes(q.status)
   );
 
-  const reviewQuestions = questions.filter(q => 
-    q.allocatedExperts.includes(expertId) && 
+  const reviewQuestions = questions.filter(q =>
+    q.allocatedExperts.includes(expert.id) &&
     q.answers.length > 0 &&
     q.status === 'in_review'
   );
 
   if (selectedQuestion) {
-    const myAnswer = selectedQuestion.answers.find(a => a.expertId === expertId);
-    
+    const myAnswer = selectedQuestion.answers.find(a => a.expertId === expert.id);
+
     if (myAnswer) {
       return (
         <ReviewAnswers
           question={selectedQuestion}
-          expertId={expertId}
+          expertId={expert.id}
           onBack={() => setSelectedQuestion(null)}
           onUpdate={(updatedQuestion) => {
             setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
@@ -68,7 +158,7 @@ export function ExpertDashboard({ expertId, onBack }: ExpertDashboardProps) {
       return (
         <AnswerSubmission
           question={selectedQuestion}
-          expertId={expertId}
+          expertId={expert.id}
           onBack={() => setSelectedQuestion(null)}
           onSubmit={(updatedQuestion) => {
             setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
@@ -95,9 +185,9 @@ export function ExpertDashboard({ expertId, onBack }: ExpertDashboardProps) {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-blue-900 mb-2">Welcome, {expert.name}</h1>
-              <p className="text-blue-700">Expert ID: {expertId}</p>
+              <p className="text-blue-700">Expert ID: {expert.id}</p>
               <div className="flex flex-wrap gap-2 mt-3">
-                {expert.specialization.map(spec => (
+                {expert.specialization.map((spec: string) => (
                   <span key={spec} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm">
                     {spec}
                   </span>
@@ -175,7 +265,7 @@ export function ExpertDashboard({ expertId, onBack }: ExpertDashboardProps) {
                   <QuestionCard
                     key={question.id}
                     question={question}
-                    expertId={expertId}
+                    expertId={expert.id}
                     onClick={() => setSelectedQuestion(question)}
                   />
                 ))
@@ -195,7 +285,7 @@ export function ExpertDashboard({ expertId, onBack }: ExpertDashboardProps) {
                   <QuestionCard
                     key={question.id}
                     question={question}
-                    expertId={expertId}
+                    expertId={expert.id}
                     onClick={() => setSelectedQuestion(question)}
                     showReviewMode
                   />

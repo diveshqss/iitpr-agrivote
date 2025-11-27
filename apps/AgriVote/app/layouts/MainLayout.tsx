@@ -24,8 +24,8 @@ export default function MainLayout() {
       case 'farmer':
         return <FarmerPortal onBack={logout} />;
       case 'expert':
-        // For expert, we need expert ID, for now use a default or let user select
-        return <ExpertDashboard expertId={user.id} onBack={logout} />;
+        // ExpertDashboard now fetches expert data dynamically based on logged-in user
+        return <ExpertDashboard onBack={logout} />;
       case 'moderator':
         return <ModeratorDashboard onBack={logout} />;
       default:
@@ -46,8 +46,10 @@ function RoleSelection({ onLogout }: { onLogout: () => void }) {
     return <FarmerPortal onBack={() => setCurrentRole(null)} />;
   }
 
-  if (currentRole === 'expert' && expertId) {
-    return <ExpertDashboard expertId={expertId} onBack={() => { setCurrentRole(null); setExpertId(''); }} />;
+  if (currentRole === 'expert') {
+    // ExpertDashboard now fetches expert data dynamically based on test mode
+    // In the future, this could be enhanced to support different expert emails
+    return <ExpertDashboard onBack={() => { setCurrentRole(null); setExpertId(''); }} />;
   }
 
   if (currentRole === 'moderator') {

@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from './config';
-import { UserCreate, TokenResponse, QuestionCreate, Question } from '../types';
+import { UserCreate, TokenResponse, QuestionCreate, Question, AnswerCreate, Question as QuestionResponse, Answer } from '../types';
 
 // API Helper function to make HTTP requests
 async function apiRequest<T>(
@@ -50,7 +50,15 @@ export const authAPI = {
       throw new Error(`Login failed: ${response.status} ${response.statusText} - ${error}`);
     }
 
-    return response.json();
+    const apiResponse = await response.json();
+
+    // Since backend returns { status, message, data: { access_token, token_type } }
+    // We need to extract the token from data property
+    if (apiResponse.status === 'success' && apiResponse.data) {
+      return apiResponse.data; // { access_token, token_type }
+    }
+
+    throw new Error('Invalid response format from server');
   },
 
   getAuthHeaders: (token?: string): Record<string, string> => {
@@ -84,6 +92,92 @@ export const farmerAPI = {
       method: 'GET',
       headers,
     });
+  },
+};
+
+
+// Expert API response types
+interface SuccessResponse<T = any> {
+  status: string;
+  message: string;
+  data: T;
+}
+
+// Helper function to get authorization headers
+const getAuthHeaders = (): Record<string, string> => {
+  const token = tokenUtils.getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+// Expert API
+export const expertAPI = {
+  getExpertByEmail: async (email: string): Promise<SuccessResponse<{ expert: any }>> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.BY_EMAIL(email), {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+  },
+
+  getAssignedQuestions: async (): Promise<SuccessResponse<{ questions: any[] }>> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.ASSIGNED_QUESTIONS, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+  },
+
+  submitAnswer: async (questionId: string, answerData: AnswerCreate): Promise<any> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.SUBMIT_ANSWER(questionId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(answerData),
+    });
+  },
+
+  getQuestionAnswers: async (questionId: string): Promise<{ answers: Answer[] }> => {
+    const response = await apiRequest(API_ENDPOINTS.EXPERT.QUESTION_ANSWERS(questionId), {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return response;
+  },
+
+  voteOnAnswer: async (answerId: string, voteType: string): Promise<any> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.VOTE_ANSWER(answerId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ vote_type: voteType }),
+    });
+  },
+
+  modifyAnswer: async (answerId: string, answerText: string): Promise<any> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.MODIFY_ANSWER(answerId), {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ answer_text: answerText }),
+    });
+  },
+
+  requestModerator: async (questionId: string): Promise<any> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.REQUEST_MODERATOR(questionId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+  },
+
+  getNotifications: async (): Promise<{ notifications: any[] }> => {
+    const response = await apiRequest(API_ENDPOINTS.EXPERT.NOTIFICATIONS, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return response;
+  },
+
+  getAISuggestions: async (answerId: string): Promise<{ suggestions: string[] }> => {
+    const response = await apiRequest(API_ENDPOINTS.EXPERT.AI_SUGGESTIONS(answerId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return response;
   },
 };
 

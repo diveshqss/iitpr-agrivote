@@ -55,4 +55,44 @@ class AnswerCreate(BaseModel):
 
 
 # ---------------------------------------------------
-# Answer
+# Answer In DB Model
+# ---------------------------------------------------
+class AnswerInDB(AnswerBase):
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+    question_id: PyObjectId = Field(..., description="Reference to the question")
+    expert_id: PyObjectId = Field(..., description="Reference to the expert")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    ai_draft: Optional[str] = Field(None, description="AI-generated draft answer")
+
+    class Config:
+        allow_population_by_field_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {
+            ObjectId: str,
+            PyObjectId: str,
+            datetime: lambda v: v.isoformat(),
+        }
+
+
+# ---------------------------------------------------
+# Answer Out Model (API Response)
+# ---------------------------------------------------
+class AnswerOut(AnswerBase):
+    id: str
+    question_id: str
+    expert_id: str
+    created_at: datetime
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
+# ---------------------------------------------------
+# Answer Update Model
+# ---------------------------------------------------
+class AnswerUpdate(BaseModel):
+    answer_text: Optional[str] = None
+    images: Optional[List[str]] = None
+    status: Optional[str] = None
