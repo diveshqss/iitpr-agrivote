@@ -42,6 +42,7 @@ answers_collection = db["answers"]
 votes_collection = db["votes"]
 workflows_collection = db["workflows"]
 notifications_collection = db["notifications"]
+peer_reviews_collection = db["peer_reviews"]
 
 
 def get_question_collection():

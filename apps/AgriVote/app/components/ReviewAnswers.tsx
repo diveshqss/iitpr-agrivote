@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { ArrowLeft, ThumbsUp, Edit2, Send, Trophy, Sparkles } from 'lucide-react';
-import { Question, Answer } from '../types';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ThumbsUp, Edit2, Send, Trophy, Sparkles, Star, MessageSquare, Award } from 'lucide-react';
+import { Question, Answer, PeerReview } from '../types';
 import { domainColors, getExpertById } from '../lib/data';
 import { calculateAnswerQualityScore } from '../lib/ai-services';
+import { expertAPI } from '../lib/api';
+import { useAuth } from '../lib/auth-context';
 
 interface ReviewAnswersProps {
   question: Question;
@@ -14,11 +16,60 @@ interface ReviewAnswersProps {
 export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAnswersProps) {
   const [editingMyAnswer, setEditingMyAnswer] = useState(false);
   const [myAnswerContent, setMyAnswerContent] = useState('');
-  
+  const [peerReviews, setPeerReviews] = useState<{[answerId: string]: PeerReview[]}>({});
+  const [myBestAnswerVote, setMyBestAnswerVote] = useState<{has_voted: boolean; answer_id?: string}>({has_voted: false});
+  const [reviewingAnswer, setReviewingAnswer] = useState<string | null>(null);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewVote, setReviewVote] = useState(false);
+  const [loading, setLoading] = useState(false);
+
   const myAnswer = question.answers.find(a => a.expertId === expertId);
   const otherAnswers = question.answers.filter(a => a.expertId !== expertId);
-  const sortedAnswers = [...question.answers].sort((a, b) => b.aiQualityScore - a.aiQualityScore);
+  const sortedAnswers = [...question.answers].sort((a, b) => b.peerVotes - a.peerVotes);
   const topAnswer = sortedAnswers[0];
+
+  useEffect(() => {
+    const loadPeerReviewsAndVote = async () => {
+      try {
+        // Check if user has already voted for best answer
+        const bestAnswerResponse = await expertAPI.getBestAnswerVote(question.id);
+        setMyBestAnswerVote(bestAnswerResponse.vote);
+
+        // Load peer reviews for all answers
+        const reviewPromises = question.answers.map(async (answer) => {
+          if (answer.expertId !== expertId) { // Don't show reviews for own answers
+            try {
+              const response = await expertAPI.getPeerReviews(answer.id);
+              return { answerId: answer.id, reviews: response.reviews };
+            } catch (error) {
+              console.error(`Failed to load reviews for answer ${answer.id}:`, error);
+              return { answerId: answer.id, reviews: [] };
+            }
+          }
+          return null;
+        });
+
+        const reviewResults = await Promise.all(reviewPromises.filter(p => p));
+        const reviewsMap: {[answerId: string]: PeerReview[]} = {};
+        reviewResults.forEach(result => {
+          if (result) {
+            reviewsMap[result.answerId] = result.reviews.map(review => ({
+              ...review,
+              reviewerExpertName: review.reviewerExpertName || 'Anonymous Expert'
+            }));
+          }
+        });
+
+        setPeerReviews(reviewsMap);
+      } catch (error) {
+        console.error('Failed to load peer reviews data:', error);
+      }
+    };
+
+    if (question.answers.length > 0) {
+      loadPeerReviewsAndVote();
+    }
+  }, [question.id, question.answers, expertId]);
 
   const handleVote = (answerId: string) => {
     const updatedAnswers = question.answers.map(answer => {
@@ -27,7 +78,7 @@ export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAn
         return {
           ...answer,
           votes: hasVoted ? answer.votes - 1 : answer.votes + 1,
-          votedBy: hasVoted 
+          votedBy: hasVoted
             ? answer.votedBy.filter(id => id !== expertId)
             : [...answer.votedBy, expertId]
         };
@@ -79,13 +130,52 @@ export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAn
       return answer;
     });
 
-    const updatedQuestion = { 
-      ...question, 
+    const updatedQuestion = {
+      ...question,
       answers: updatedAnswers,
       status: myAnswer.votes >= 5 ? 'ready_for_moderator' : question.status
     };
-    
+
     onUpdate(updatedQuestion);
+  };
+
+  const handleSubmitPeerReview = async (answerId: string) => {
+    try {
+      setLoading(true);
+      await expertAPI.submitPeerReview(answerId, {
+        best_answer_vote: reviewVote,
+        comment_text: reviewComment
+      });
+
+      // Refresh peer reviews for this answer
+      const reviewsResponse = await expertAPI.getPeerReviews(answerId);
+      const refreshedAnswerVote = await expertAPI.getBestAnswerVote(question.id);
+
+      // Update question with refreshed data
+      const updatedAnswers = question.answers.map(answer => {
+        if (answer.id === answerId) {
+          return {
+            ...answer,
+            peerReviewComments: reviewsResponse.reviews,
+            peerVotes: reviewsResponse.reviews.filter((r: PeerReview) => r.bestAnswerVote).length
+          };
+        }
+        return answer;
+      });
+
+      onUpdate({ ...question, answers: updatedAnswers });
+      setReviewingAnswer(null);
+      setReviewComment('');
+      setReviewVote(false);
+      setMyBestAnswerVote(refreshedAnswerVote.vote);
+
+      alert('Peer review submitted successfully!');
+    } catch (error) {
+      console.error('Failed to submit peer review:', error);
+      alert('Failed to submit peer review. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const canRequestModeratorReview = myAnswer && myAnswer.votes >= 5 && !myAnswer.requestedModeratorReview;
@@ -189,6 +279,9 @@ export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAn
                   const answerExpert = getExpertById(answer.expertId);
                   const hasVoted = answer.votedBy.includes(expertId);
                   const isTopAnswer = answer.id === topAnswer.id;
+                  const hasBestAnswerVote = myBestAnswerVote.answer_id === answer.id;
+                  const reviews = peerReviews[answer.id] || [];
+                  const hasReviewed = reviews.some(review => review.reviewerExpertId === expertId);
 
                   return (
                     <div
@@ -203,7 +296,7 @@ export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAn
                           <span className="text-sm">AI Top-Ranked Answer</span>
                         </div>
                       )}
-                      
+
                       <div className="flex items-start justify-between mb-4">
                         <div>
                           <p className="text-gray-900">{answerExpert?.name || 'Expert'}</p>
@@ -211,20 +304,132 @@ export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAn
                             {answerExpert?.specialization.join(', ')}
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleVote(answer.id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                            hasVoted
-                              ? 'bg-blue-600 text-white'
-                              : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50'
-                          }`}
-                        >
-                          <ThumbsUp className={`w-4 h-4 ${hasVoted ? 'fill-current' : ''}`} />
-                          {answer.votes}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleVote(answer.id)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                              hasVoted
+                                ? 'bg-blue-600 text-white'
+                                : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50'
+                            }`}
+                          >
+                            <ThumbsUp className={`w-4 h-4 ${hasVoted ? 'fill-current' : ''}`} />
+                            {answer.votes}
+                          </button>
+                        </div>
                       </div>
 
                       <p className="text-gray-800 mb-4">{answer.content}</p>
+
+                      {/* Best Answer Vote */}
+                      <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Star className={`w-5 h-5 ${hasBestAnswerVote ? 'text-orange-600 fill-current' : 'text-gray-400'}`} />
+                            <span className="text-sm font-medium">
+                              Best Answer ({answer.peerVotes} votes)
+                            </span>
+                          </div>
+                          {myBestAnswerVote.has_voted ? (
+                            <span className={`text-sm ${hasBestAnswerVote ? 'text-orange-600' : 'text-gray-500'}`}>
+                              {hasBestAnswerVote ? 'Your choice' : 'Already voted'}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setReviewingAnswer(answer.id);
+                                setReviewVote(true);
+                                setReviewComment('');
+                              }}
+                              className="text-sm text-orange-600 hover:text-orange-800 underline"
+                            >
+                              Vote for best
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Peer Reviews */}
+                      {reviews.length > 0 && (
+                        <div className="mb-4 space-y-2">
+                          <h4 className="text-sm font-medium text-gray-700">Peer Reviews:</h4>
+                          {reviews.slice(0, 2).map(review => (
+                            <div key={review.id} className="bg-gray-50 p-3 rounded-lg">
+                              <p className="text-sm text-gray-700 italic">"{review.commentText}"</p>
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-xs text-gray-500">Anonymous Expert</span>
+                                {review.bestAnswerVote && (
+                                  <span className="text-xs text-orange-600">✓ Best answer choice</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {reviews.length > 2 && (
+                            <p className="text-xs text-gray-500">
+                              +{reviews.length - 2} more review{reviews.length - 2 > 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Review Button */}
+                      {!hasReviewed && (
+                        <button
+                          onClick={() => {
+                            setReviewingAnswer(reviewingAnswer === answer.id ? null : answer.id);
+                            setReviewVote(hasBestAnswerVote);
+                            setReviewComment('');
+                          }}
+                          className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mb-3"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          {reviewingAnswer === answer.id ? 'Cancel Review' : 'Add Review'}
+                        </button>
+                      )}
+
+                      {/* Review Form */}
+                      {reviewingAnswer === answer.id && (
+                        <div className="border-t pt-4 mt-4 space-y-3">
+                          <div>
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={reviewVote}
+                                onChange={(e) => setReviewVote(e.target.checked)}
+                                className="rounded"
+                              />
+                              <span>Vote for this as the best answer</span>
+                            </label>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Review Comment (Optional)
+                            </label>
+                            <textarea
+                              value={reviewComment}
+                              onChange={(e) => setReviewComment(e.target.value)}
+                              className="w-full border-2 border-gray-300 rounded-lg p-3 text-sm"
+                              rows={3}
+                              placeholder="Share your thoughts on this answer..."
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSubmitPeerReview(answer.id)}
+                              disabled={loading}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                            >
+                              {loading ? 'Submitting...' : 'Submit Review'}
+                            </button>
+                            <button
+                              onClick={() => setReviewingAnswer(null)}
+                              className="border-2 border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-4 pt-4 border-t text-sm">
                         <div className="flex items-center gap-2">
@@ -285,7 +490,7 @@ export function ReviewAnswers({ question, expertId, onBack, onUpdate }: ReviewAn
                 {sortedAnswers.map((answer, idx) => {
                   const answerExpert = getExpertById(answer.expertId);
                   const isMyAnswer = answer.expertId === expertId;
-                  
+
                   return (
                     <div key={answer.id} className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${

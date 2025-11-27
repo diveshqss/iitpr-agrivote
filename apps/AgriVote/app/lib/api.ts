@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from './config';
-import { UserCreate, TokenResponse, QuestionCreate, Question, AnswerCreate, Question as QuestionResponse, Answer } from '../types';
+import { UserCreate, TokenResponse, QuestionCreate, Question, AnswerCreate, Question as QuestionResponse, Answer, PeerReview } from '../types';
 
 // API Helper function to make HTTP requests
 async function apiRequest<T>(
@@ -175,6 +175,30 @@ export const expertAPI = {
   getAISuggestions: async (answerId: string): Promise<{ suggestions: string[] }> => {
     const response = await apiRequest(API_ENDPOINTS.EXPERT.AI_SUGGESTIONS(answerId), {
       method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return response;
+  },
+
+  submitPeerReview: async (answerId: string, reviewData: { best_answer_vote: boolean; comment_text: string }): Promise<any> => {
+    return apiRequest(API_ENDPOINTS.EXPERT.PEER_REVIEW(answerId), {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(reviewData),
+    });
+  },
+
+  getPeerReviews: async (answerId: string): Promise<{ reviews: PeerReview[] }> => {
+    const response = await apiRequest(API_ENDPOINTS.EXPERT.GET_PEER_REVIEWS(answerId), {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    return response;
+  },
+
+  getBestAnswerVote: async (questionId: string): Promise<{ vote: { has_voted: boolean; answer_id?: string } }> => {
+    const response = await apiRequest(API_ENDPOINTS.EXPERT.BEST_ANSWER_VOTE(questionId), {
+      method: 'GET',
       headers: getAuthHeaders(),
     });
     return response;

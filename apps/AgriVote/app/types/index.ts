@@ -65,6 +65,18 @@ export interface Answer {
   submittedAt: string;
   lastModifiedAt: string;
   requestedModeratorReview: boolean;
+  peerVotes: number;
+  peerReviewComments: PeerReview[];
+}
+
+export interface PeerReview {
+  id: string;
+  answerId: string;
+  reviewerExpertId: string;
+  reviewerExpertName?: string;
+  bestAnswerVote: boolean;
+  commentText: string;
+  createdAt: string;
 }
 
 export interface ModeratorReview {

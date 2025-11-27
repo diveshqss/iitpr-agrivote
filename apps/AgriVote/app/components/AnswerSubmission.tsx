@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ArrowLeft, Sparkles, Send, Lightbulb } from 'lucide-react';
-import { Question, Answer } from '../types';
+import { Question, Answer, AnswerCreate } from '../types';
 import { generateAnswerDraft, generateQualitySuggestions, calculateAnswerQualityScore } from '../lib/ai-services';
 import { generateAnswerId, domainColors } from '../lib/data';
+import { expertAPI } from '../lib/api';
 
 interface AnswerSubmissionProps {
   question: Question;
@@ -14,6 +15,7 @@ interface AnswerSubmissionProps {
 export function AnswerSubmission({ question, expertId, onBack, onSubmit }: AnswerSubmissionProps) {
   const [answer, setAnswer] = useState('');
   const [showAIDraft, setShowAIDraft] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const aiDraft = generateAnswerDraft(question.cleanedQuestion, question.domain);
   const qualitySuggestions = answer.length > 20 ? generateQualitySuggestions(answer, question.cleanedQuestion) : [];
   const qualityScore = answer.length > 20 ? calculateAnswerQualityScore(answer, question.cleanedQuestion) : 0;
@@ -23,32 +25,29 @@ export function AnswerSubmission({ question, expertId, onBack, onSubmit }: Answe
     setShowAIDraft(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!answer.trim()) return;
 
-    const newAnswer: Answer = {
-      id: generateAnswerId(),
-      expertId,
-      expertName: 'Current Expert',
-      questionId: question.id,
-      content: answer,
-      aiDraft: showAIDraft ? aiDraft : undefined,
-      aiQualitySuggestions: qualitySuggestions,
-      votes: 0,
-      votedBy: [],
-      aiQualityScore: qualityScore,
-      submittedAt: new Date().toISOString(),
-      lastModifiedAt: new Date().toISOString(),
-      requestedModeratorReview: false
-    };
+    try {
+      setIsSubmitting(true);
 
-    const updatedQuestion: Question = {
-      ...question,
-      status: 'in_review',
-      answers: [...question.answers, newAnswer]
-    };
+      // Call the backend API to submit the answer
+      const answerData: AnswerCreate = {
+        answer_text: answer,
+        images: [] // Could add image support later
+      };
 
-    onSubmit(updatedQuestion);
+      await expertAPI.submitAnswer(question.id, answerData);
+
+      // After successful save, update local state and go back
+      onBack(); // Go back to dashboard instead of updating question locally
+
+    } catch (error) {
+      console.error('Failed to submit answer:', error);
+      alert('Failed to submit answer. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -207,11 +206,11 @@ export function AnswerSubmission({ question, expertId, onBack, onSubmit }: Answe
           {/* Submit Button */}
           <button
             onClick={handleSubmit}
-            disabled={!answer.trim()}
+            disabled={!answer.trim() || isSubmitting}
             className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Send className="w-5 h-5" />
-            Submit Answer
+            {isSubmitting ? 'Submitting...' : 'Submit Answer'}
           </button>
         </div>
       </div>

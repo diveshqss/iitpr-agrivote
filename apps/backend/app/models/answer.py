@@ -40,6 +40,8 @@ class AnswerBase(BaseModel):
 
     upvotes: int = Field(0, description="Upvotes by farmers")
     downvotes: int = Field(0, description="Downvotes by farmers")
+    peer_votes: int = Field(0, description="Peer votes for best answer")
+    peer_review_comments: List[dict] = Field(default_factory=list, description="Peer review comments from other experts")
 
     class Config:
         arbitrary_types_allowed = True

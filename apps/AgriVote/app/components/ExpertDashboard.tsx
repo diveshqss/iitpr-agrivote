@@ -63,8 +63,78 @@ export function ExpertDashboard({ onBack }: ExpertDashboardProps) {
       try {
         // Update expert ID in all API calls
         const response = await expertAPI.getAssignedQuestions();
+        const apiQuestions: Question[] = (response.data?.questions || []).map((q: any) => {
+          const mappedQuestion: Question = {
+            id: q.id,
+            farmerId: q.user_id || 'unknown',
+            farmerName: 'Farmer',
+            originalQuestion: q.original_text,
+            cleanedQuestion: q.cleaned_text,
+            aiSuggestions: [],
+            domain: q.domain,
+            status: (q.status === 'assigned' ? 'allocated' : q.status === 'answered' ? 'in_review' : 'allocated') as any,
+            submittedAt: typeof q.created_at === 'object' && q.created_at.$date ? q.created_at.$date : q.created_at,
+            allocatedExperts: q.assigned_experts || [],
+            answers: [],
+            isDuplicate: q.duplicate_of !== null,
+            duplicateOf: q.duplicate_of,
+            moderatorReview: undefined,
+            rejectionHistory: undefined
+          };
+          return mappedQuestion;
+        });
+
+        // Load answers for questions that are available for review
+        const questionsWithAnswers = await Promise.all(
+          apiQuestions.map(async (question) => {
+            if (question.status === 'in_review' && question.allocatedExperts.includes(expertId)) {
+              try {
+                const answersResponse = await expertAPI.getQuestionAnswers(question.id);
+                const answers = answersResponse.answers.map((answer: any) => ({
+                  id: answer._id || answer.id,
+                  expertId: answer.expert_id,
+                  expertName: answer.expert_name || 'Expert', // We'll enhance this later
+                  questionId: answer.question_id,
+                  content: answer.answer_text,
+                  aiDraft: answer.ai_draft,
+                  aiQualitySuggestions: answer.ai_quality_suggestions || [],
+                  votes: answer.upvotes || 0,
+                  votedBy: answer.voted_by || [],
+                  aiQualityScore: answer.ai_quality_score || 85,
+                  submittedAt: answer.created_at,
+                  lastModifiedAt: answer.created_at,
+                  requestedModeratorReview: answer.requestedModeratorReview || false,
+                  peerVotes: answer.peer_votes || 0,
+                  peerReviewComments: [] // We'll load these separately if needed
+                }));
+                return { ...question, answers };
+              } catch (error) {
+                console.error(`Failed to load answers for question ${question.id}:`, error);
+                return question;
+              }
+            }
+            return question;
+          })
+        );
+
+        setQuestions(questionsWithAnswers);
+      } catch (err) {
+        console.error('Failed to fetch questions:', err);
+        setError('Failed to load questions');
+      }
+    };
+
+    fetchExpertData();
+  }, [user, token]);
+
+  // Function to refresh questions data after answer submission
+  const refreshQuestionsData = async () => {
+    if (expert) {
+      const expertId = expert.id;
+      try {
+        const response = await expertAPI.getAssignedQuestions();
         const apiQuestions: Question[] = (response.data?.questions || []).map((q: any) => ({
-          id: q._id,
+          id: q.id,
           farmerId: q.user_id || 'unknown',
           farmerName: 'Farmer',
           originalQuestion: q.original_text,
@@ -78,15 +148,46 @@ export function ExpertDashboard({ onBack }: ExpertDashboardProps) {
           isDuplicate: q.duplicate_of !== null,
           duplicateOf: q.duplicate_of
         }));
-        setQuestions(apiQuestions);
-      } catch (err) {
-        console.error('Failed to fetch questions:', err);
-        setError('Failed to load questions');
-      }
-    };
 
-    fetchExpertData();
-  }, [user, token]);
+        // Load answers for questions that are available for review
+        const questionsWithAnswers = await Promise.all(
+          apiQuestions.map(async (question) => {
+            if (question.status === 'in_review' && question.allocatedExperts.includes(expertId)) {
+              try {
+                const answersResponse = await expertAPI.getQuestionAnswers(question.id);
+                const answers = answersResponse.answers.map((answer: any) => ({
+                  id: answer._id || answer.id,
+                  expertId: answer.expert_id,
+                  expertName: answer.expert_name || 'Expert',
+                  questionId: answer.question_id,
+                  content: answer.answer_text,
+                  aiDraft: answer.ai_draft,
+                  aiQualitySuggestions: answer.ai_quality_suggestions || [],
+                  votes: answer.upvotes || 0,
+                  votedBy: answer.voted_by || [],
+                  aiQualityScore: answer.ai_quality_score || 85,
+                  submittedAt: answer.created_at,
+                  lastModifiedAt: answer.created_at,
+                  requestedModeratorReview: answer.requestedModeratorReview || false,
+                  peerVotes: answer.peer_votes || 0,
+                  peerReviewComments: []
+                }));
+                return { ...question, answers };
+              } catch (error) {
+                console.error(`Failed to load answers for question ${question.id}:`, error);
+                return question;
+              }
+            }
+            return question;
+          })
+        );
+
+        setQuestions(questionsWithAnswers);
+      } catch (err) {
+        console.error('Failed to refresh questions:', err);
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -159,7 +260,10 @@ export function ExpertDashboard({ onBack }: ExpertDashboardProps) {
         <AnswerSubmission
           question={selectedQuestion}
           expertId={expert.id}
-          onBack={() => setSelectedQuestion(null)}
+          onBack={async () => {
+            setSelectedQuestion(null);
+            await refreshQuestionsData(); // Refresh questions after answer submission
+          }}
           onSubmit={(updatedQuestion) => {
             setQuestions(prev => prev.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
             setSelectedQuestion(null);

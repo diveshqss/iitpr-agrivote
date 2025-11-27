@@ -24,6 +24,9 @@ export const API_ENDPOINTS = {
     REQUEST_MODERATOR: (questionId: string) => `${API_BASE_URL}/api/expert/question/${questionId}/request-moderator`,
     NOTIFICATIONS: `${API_BASE_URL}/api/expert/notifications`,
     AI_SUGGESTIONS: (answerId: string) => `${API_BASE_URL}/api/expert/answer/${answerId}/ai-suggestions`,
+    PEER_REVIEW: (answerId: string) => `${API_BASE_URL}/api/expert/answer/${answerId}/peer-review`,
+    GET_PEER_REVIEWS: (answerId: string) => `${API_BASE_URL}/api/expert/answer/${answerId}/peer-reviews`,
+    BEST_ANSWER_VOTE: (questionId: string) => `${API_BASE_URL}/api/expert/question/${questionId}/best-answer-vote`,
   },
   HEALTH: `${API_BASE_URL}/health`,
 } as const;
