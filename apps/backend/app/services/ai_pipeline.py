@@ -12,6 +12,63 @@ import asyncio
 from typing import List
 from openai import OpenAI
 import os
+import numpy as np
+
+
+def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+    """Calculate cosine similarity between two vectors."""
+    v1 = np.array(vec1)
+    v2 = np.array(vec2)
+
+    # Normalize vectors
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0.0
+
+    return np.dot(v1, v2) / (norm_v1 * norm_v2)
+
+
+async def allocate_experts_domain_vector(question_domain: str, question_embedding: List[float]) -> List[str]:
+    """Allocate top 5 experts based on domain match and vector similarity with question embedding."""
+    try:
+        # Find all experts in the matching domain
+        experts_cursor = users_collection.find({"role": "expert", "domain": question_domain})
+        experts = await experts_cursor.to_list(length=None)
+
+        if not experts:
+            print(f"No experts found for domain: {question_domain}")
+            return []
+
+        # Calculate similarity scores
+        expert_similarities = []
+        for expert in experts:
+            if "specialisation_embedding" in expert and expert["specialisation_embedding"]:
+                similarity = cosine_similarity(question_embedding, expert["specialisation_embedding"])
+                expert_similarities.append({
+                    "_id": str(expert["_id"]),
+                    "name": expert.get("name", "Unknown"),
+                    "specialisation": expert.get("specialisation", ""),
+                    "similarity": similarity,
+                    "score": expert.get("score", 0),
+                    "accuracy": expert.get("accuracy", 0)
+                })
+
+        # Sort by similarity descending and pick top 5
+        expert_similarities.sort(key=lambda x: x["similarity"], reverse=True)
+        top_experts = expert_similarities[:5]
+
+        # Log allocation details
+        print(f"Allocated {len(top_experts)} experts for domain '{question_domain}':")
+        for i, expert in enumerate(top_experts, 1):
+            print(f"  {i}. {expert['name']} - {expert['specialisation']} (similarity: {expert['similarity']:.4f})")
+
+        return [expert["_id"] for expert in top_experts]
+
+    except Exception as e:
+        print(f"Error allocating experts: {e}")
+        return []
 
 
 async def generate_embedding(text: str) -> List[float]:
@@ -113,17 +170,36 @@ async def process_question_pipeline(question_id: str):
         print(f"Text cleanup failed for question {question_id}: {e}")
         # Continue with original text
 
-    # 5) Expert allocation (TODO: Make this smarter based on domain/expertise)
+    # 5) Expert allocation based on domain match and vector similarity
     try:
-        # Simple allocation: pick up to 2 experts (sort by creation date)
-        cursor = users_collection.find({"role": "expert"}).sort("created_at", 1).limit(2)
-        experts = []
-        async for e in cursor:
-            experts.append(str(e["_id"]))
-        if experts:
+        # Get the latest question object with domain and embedding
+        current_qobj = await questions_collection.find_one({"_id": ObjectId(question_id)})
+        question_domain = current_qobj.get("domain", "other")
+        question_embedding = current_qobj.get("embedding", [])
+
+        # Allocate experts based on domain and vector similarity
+        if question_embedding and question_domain != "other":
+            assigned_experts = await allocate_experts_domain_vector(question_domain, question_embedding)
+        else:
+            # Fallback: allocate from general pool if no embedding or domain is 'other'
+            print(f"Falling back to general expert allocation for question {question_id}")
+            cursor = users_collection.find({"role": "expert"}).limit(5)
+            assigned_experts = []
+            async for e in cursor:
+                assigned_experts.append(str(e["_id"]))
+
+        if assigned_experts:
             await questions_collection.update_one(
                 {"_id": ObjectId(question_id)},
-                {"$set": {"assigned_experts": experts, "status": "assigned"}}
+                {"$set": {
+                    "assigned_experts": assigned_experts,
+                    "status": "assigned",
+                    "expert_allocation_details": {
+                        "method": "domain_vector_similarity" if question_embedding else "fallback_random",
+                        "domain": question_domain,
+                        "num_experts": len(assigned_experts)
+                    }
+                }}
             )
         else:
             await questions_collection.update_one(
