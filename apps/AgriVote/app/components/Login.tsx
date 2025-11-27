@@ -173,16 +173,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess }) => {
               </button>
             </div>
 
-            {/* Demo Credentials */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <p className="text-gray-900 text-sm mb-2">Demo Credentials:</p>
-              <div className="space-y-2 text-xs text-gray-600">
-                <p><span className="font-medium">Farmer:</span> farmer@demo.com / password</p>
-                <p><span className="font-medium">Expert:</span> expert-1@demo.com / password</p>
-                <p><span className="font-medium">Moderator:</span> moderator@demo.com / password</p>
-                <p><span className="font-medium">Admin:</span> admin@demo.com / password</p>
-              </div>
-            </div>
           </div>
 
           {/* Right Side - Login/Signup Form */}
