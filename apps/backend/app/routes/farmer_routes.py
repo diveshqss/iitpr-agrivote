@@ -45,7 +45,21 @@ async def get_question(question_id: str):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    return success({"question": question.dict()})
+    # Convert to the expected response format (maintaining API compatibility)
+    out = {
+        "id": question.id,
+        "raw_text": question.raw_text,
+        "cleaned_text": question.cleaned_text,
+        "domain": question.domain,
+        "status": question.status.value,  # Convert enum to string
+        "assigned_experts": question.assigned_experts,
+        "is_duplicate_of": question.is_duplicate_of,
+        "created_by": question.created_by,
+        "created_at": question.created_at,
+        "ai_metadata": question.ai_metadata.dict() if question.ai_metadata else {},
+        "ai_pipeline": question.ai_pipeline.dict() if question.ai_pipeline else {}
+    }
+    return success({"question": out})
 # # backend/app/routes/farmer_routes.py
 # from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 # from typing import Optional

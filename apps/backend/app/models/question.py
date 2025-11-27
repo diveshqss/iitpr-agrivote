@@ -1,103 +1,130 @@
-# models/question_model.py
-
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+# app/models/question.py
+from pydantic import BaseModel, Field, validator, ConfigDict
+from typing import Optional, List, Dict, Any
 from datetime import datetime
-from bson import ObjectId
-
-
-# ---------------------------------------------------
-# Helper for ObjectId serialization
-# ---------------------------------------------------
-class PyObjectId(ObjectId):
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-
-
-# ---------------------------------------------------
-# Base Question Model (shared fields)
-# ---------------------------------------------------
-class QuestionBase(BaseModel):
-    farmer_id: PyObjectId = Field(..., description="Farmer asking the question")
-    raw_question: str = Field(..., description="Original question from farmer")
-    cleaned_question: Optional[str] = Field(None, description="AI cleaned version")
-    ai_domain: Optional[str] = Field(None, description="AI generated domain")
-    is_duplicate: bool = False
-    duplicate_of: Optional[PyObjectId] = None
-    assigned_expert_id: Optional[PyObjectId] = None
-    status: str = Field("pending", description="pending / answered / rejected")
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-
-
-# ---------------------------------------------------
-# Question Create Model (input to API)
-# ---------------------------------------------------
-class QuestionCreate(BaseModel):
-    text: str = Field(..., min_length=3)
-    metadata: Optional[Dict] = {}
-
-
-# ---------------------------------------------------
-# Question DB Model (final stored model)
-# ---------------------------------------------------
-class QuestionDB(QuestionBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-# ---------------------------------------------------
-# Response Model (sent back to UI)
-# ---------------------------------------------------
-class QuestionResponse(QuestionDB):
-    pass
-
-# # backend/app/models/question.py
-# from pydantic import BaseModel, Field
-# from typing import Optional, List
-# from datetime import datetime
 from enum import Enum
 
+
+# ---------------------------------------------------
+# Question Status Enum
+# ---------------------------------------------------
 class QuestionStatus(str, Enum):
-    SUBMITTED = "submitted"
+    NEW = "new"
     PROCESSING = "processing"
     DUPLICATE = "duplicate"
     ASSIGNED = "assigned"
+    ANSWERED = "answered"
     COMPLETED = "completed"
 
-# class QuestionCreate(BaseModel):
-#     text: str = Field(..., min_length=3)
-#     # optional metadata fields like images, farmer contact can be added later
-#     metadata: Optional[dict] = None
 
-# class QuestionInDB(BaseModel):
-#     id: str
-#     user_id: Optional[str] = None
-#     original_text: str
-#     cleaned_text: Optional[str] = None
-#     domain: Optional[str] = None
-#     status: QuestionStatus
-#     assigned_experts: Optional[List[str]] = None
-#     duplicate_of: Optional[str] = None
-#     created_at: datetime
+# ---------------------------------------------------
+# AI Metadata Model
+# ---------------------------------------------------
+class AIMetadata(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
 
+    embedding_generated: Optional[bool] = False
+    embedding_model: Optional[str] = None
+    generated_at: Optional[datetime] = None
+    duplicate_found: Optional[bool] = False
+    similarity_score: Optional[float] = None
+    model_version: Optional[str] = None
+
+
+# ---------------------------------------------------
+# Pipeline Status Model
+# ---------------------------------------------------
+class AIPipelineStatus(BaseModel):
+    status: str = "pending"  # "pending", "running", "done", "failed"
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+
+
+# ---------------------------------------------------
+# Question Create Model (API Input)
+# ---------------------------------------------------
+class QuestionCreate(BaseModel):
+    text: str = Field(..., min_length=5, max_length=5000, description="The farmer's question text")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Optional metadata (crop type, location, images, etc.)")
+
+    @validator('text')
+    def validate_text(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Question text cannot be empty')
+        return v.strip()
+
+
+# ---------------------------------------------------
+# Question In Database Model (Internal)
+# ---------------------------------------------------
+class QuestionInDB(BaseModel):
+    id: Optional[str] = Field(None, alias="_id")
+    raw_text: str
+    cleaned_text: Optional[str] = None
+    embedding: Optional[List[float]] = None
+    domain: Optional[str] = None
+    status: QuestionStatus = QuestionStatus.NEW
+    assigned_experts: List[str] = Field(default_factory=list)
+    is_duplicate_of: Optional[str] = None
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    ai_metadata: AIMetadata = Field(default_factory=AIMetadata)
+    ai_pipeline: AIPipelineStatus = Field(default_factory=AIPipelineStatus)
+
+    class Config:
+        allow_population_by_field_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
+# ---------------------------------------------------
+# Question Output Model (API Response)
+# ---------------------------------------------------
 class QuestionOut(BaseModel):
     id: str
-    original_text: str
+    raw_text: str
     cleaned_text: Optional[str]
     domain: Optional[str]
     status: QuestionStatus
-    assigned_experts: Optional[List[str]] = None
-    duplicate_of: Optional[str] = None
+    assigned_experts: List[str]
+    is_duplicate_of: Optional[str]
+    created_by: str
     created_at: datetime
+    ai_metadata: AIMetadata
+    ai_pipeline: AIPipelineStatus
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
+# ---------------------------------------------------
+# Question Update Models
+# ---------------------------------------------------
+class QuestionUpdate(BaseModel):
+    status: Optional[QuestionStatus] = None
+    domain: Optional[str] = None
+    assigned_experts: Optional[List[str]] = None
+    is_duplicate_of: Optional[str] = None
+    cleaned_text: Optional[str] = None
+
+
+# ---------------------------------------------------
+# Vector Search Result Model
+# ---------------------------------------------------
+class VectorSearchResult(BaseModel):
+    question_id: str
+    raw_text: str
+    domain: Optional[str]
+    created_by: str
+    created_at: datetime
+    similarity_score: float
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }

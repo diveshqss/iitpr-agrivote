@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import auth_routes
 from app.routes import farmer_routes
+from app.routes import moderator_routes
 
 def create_app() -> FastAPI:
     app = FastAPI(title="AgriVote Nexus API", version="0.1.0")
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_routes.router)
     app.include_router(farmer_routes.router)
+    app.include_router(moderator_routes.router)
 
     @app.get("/health")
     async def health():
