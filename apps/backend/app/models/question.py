@@ -1,7 +1,7 @@
 # models/question_model.py
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from bson import ObjectId
 
@@ -44,8 +44,8 @@ class QuestionBase(BaseModel):
 # Question Create Model (input to API)
 # ---------------------------------------------------
 class QuestionCreate(BaseModel):
-    farmer_id: str
-    question: str
+    text: str = Field(..., min_length=3)
+    metadata: Optional[Dict] = {}
 
 
 # ---------------------------------------------------

@@ -39,12 +39,12 @@ def check_environment():
     print(f"📍 API Key: {api_key[:20]}...")
     return True
 
-def run_tests(test_filter=None, verbose=True):
+def run_tests(test_filter=None, verbose=True, test_file="test_classifier.py"):
     """Run the classifier tests."""
     import subprocess
 
     # Use the same python executable as this script (ensures venv is used)
-    cmd = [sys.executable, "-m", "pytest", "tests/test_classifier.py"]
+    cmd = [sys.executable, "-m", "pytest", f"tests/{test_file}"]
 
     if test_filter:
         cmd.extend(["-k", test_filter])
