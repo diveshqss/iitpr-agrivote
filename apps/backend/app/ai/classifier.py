@@ -36,6 +36,7 @@ Farmer Question: "{question}"
         response = model.generate_content(prompt)
 
         domain = response.text.strip().lower()
+        print(question, domain)
 
         allowed = ["crop","soil","pest","fertilizer","irrigation","weather","other"]
 
