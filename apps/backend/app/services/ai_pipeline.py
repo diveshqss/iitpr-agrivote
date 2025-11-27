@@ -5,6 +5,7 @@ Uses OpenAI for embeddings and MongoDB Atlas Vector Search for duplicate detecti
 """
 
 from app.utils.db import questions_collection, users_collection
+from app.utils.vector import cosine_similarity
 from bson import ObjectId
 from datetime import datetime
 from app.ai import classifier, duplicate_detector, cleanup
@@ -12,22 +13,6 @@ import asyncio
 from typing import List
 from openai import OpenAI
 import os
-import numpy as np
-
-
-def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
-    """Calculate cosine similarity between two vectors."""
-    v1 = np.array(vec1)
-    v2 = np.array(vec2)
-
-    # Normalize vectors
-    norm_v1 = np.linalg.norm(v1)
-    norm_v2 = np.linalg.norm(v2)
-
-    if norm_v1 == 0 or norm_v2 == 0:
-        return 0.0
-
-    return np.dot(v1, v2) / (norm_v1 * norm_v2)
 
 
 async def allocate_experts_domain_vector(question_domain: str, question_embedding: List[float]) -> List[str]:
@@ -141,7 +126,7 @@ async def process_question_pipeline(question_id: str):
     # 3) Duplicate detection (now uses vector search if embedding available)
     try:
         # Pass both text and embedding to duplicate detector
-        dup = await duplicate_detector.find_semantic_duplicate(question_id, text, embedding)
+        dup = await duplicate_detector.find_semantic_duplicate(question_id, domain, embedding)
 
         if dup:
             await questions_collection.update_one(

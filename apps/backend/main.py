@@ -6,6 +6,7 @@ from app.config import settings
 from app.routes import auth_routes
 from app.routes import farmer_routes
 from app.routes import moderator_routes
+from app.routes import expert_routes
 
 def create_app() -> FastAPI:
     app = FastAPI(title="AgriVote Nexus API", version="0.1.0")
@@ -18,9 +19,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    app.include_router(auth_routes.router)
-    app.include_router(farmer_routes.router)
-    app.include_router(moderator_routes.router)
+    app.include_router(auth_routes)
+    app.include_router(farmer_routes)
+    app.include_router(moderator_routes)
+    app.include_router(expert_routes)
 
     @app.get("/health")
     async def health():
