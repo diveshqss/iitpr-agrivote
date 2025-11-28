@@ -48,7 +48,7 @@ async def get_question(question_id: str):
     # Convert to the expected response format (maintaining API compatibility)
     out = {
         "id": question.id,
-        "original_text": question.original_text,
+        "original_text": question.raw_text,  # Use raw_text field from QuestionOut model
         "cleaned_text": question.cleaned_text,
         "domain": question.domain,
         "status": question.status.value,  # Convert enum to string

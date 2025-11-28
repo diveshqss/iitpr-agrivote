@@ -80,18 +80,15 @@ export function FarmerPortal({ onBack }: FarmerPortalProps) {
           setIsPolling(false);
         }
 
-      } catch (error) {
-        pollCount++;
-        console.error('Failed to poll question:', error);
-        const errorMsg = error instanceof Error ? error.message : 'Failed to check question status';
-        setPollError(errorMsg);
+    } catch (error) {
+      pollCount++;
+      console.error('Failed to poll question:', error);
 
-        if (pollCount >= MAX_POLL_ATTEMPTS) {
-          setIsPolling(false);
-          setPollError('Unable to retrieve question status. Please try again later.');
-          localStorage.removeItem('current_question_id');
-        }
+      if (pollCount >= MAX_POLL_ATTEMPTS) {
+        setIsPolling(false);
+        localStorage.removeItem('current_question_id');
       }
+    }
     };
 
     pollQuestion();
