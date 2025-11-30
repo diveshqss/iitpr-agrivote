@@ -2,7 +2,7 @@ import os
 from openai import OpenAI
 
 # Load API key
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 MODEL_NAME = "gpt-4o-mini"
 

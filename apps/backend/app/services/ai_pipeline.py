@@ -59,7 +59,7 @@ async def allocate_experts_domain_vector(question_domain: str, question_embeddin
 async def generate_embedding(text: str) -> List[float]:
     """Generate text embedding using OpenAI for duplicate detection."""
     try:
-        client = OpenAI(api_key="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")
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         result = client.embeddings.create(
             input=text,
             model="text-embedding-3-small"
