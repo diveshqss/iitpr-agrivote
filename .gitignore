@@ -133,3 +133,4 @@ docker-volumes/
 # Misc
 *.bak
 *.tmp
+.vscode
